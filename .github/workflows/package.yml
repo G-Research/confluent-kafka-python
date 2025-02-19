@@ -49,44 +49,29 @@ jobs:
           bash tools/mingw-w64/semaphore_commands.sh
           bash tools/wheels/install-librdkafka.sh ${LIBRDKAFKA_VERSION#v} dest
           tools/wheels/build-wheels.bat x64 win_amd64 dest wheelhouse
-          tar -czf wheelhouse-windows-${ARCH}.tgz wheelhouse
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ env.OS_NAME }}-${{ env.ARCH }}
           path: wheelhouse/confluent_kafka*.whl
 
-  package:
-    name: Package all wheels
+  publish_pypi_index:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    name: Build a PyPI-compatible index
     needs: [build-linux-x64, build-windows]
-    runs-on: ubuntu-20.04
-    steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+      packages: read
+      pages: write
+      id-token: write
+    steps:    
+      - uses: actions/checkout@v2
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: wheels-*
           merge-multiple: true
-      - name: Package wheels
-        run: |
-          cd artifacts
-          ls -al
-      - uses: actions/upload-artifact@v4
-        with:
-          name: confluent-kafka-python-wheels
-          path: artifacts/confluent_kafka-*.whl
-
-  publish_pypi_index:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    name: Build a PyPI-compatible index
-    needs: package
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:    
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v4
-        with:
-          name: confluent-kafka-python-wheels
-          path: artifacts
           
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -105,8 +90,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OUTPUT_DIR: dist
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload Site Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: 'dist'
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

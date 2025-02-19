@@ -5,7 +5,6 @@ set -ex
 VER="$1"
 DEST="$2"
 
-
 if [[ -z $DEST ]]; then
     echo "Usage: $0 <librdkafka-redist-version> <destdir>"
     exit 1
@@ -30,7 +29,7 @@ curl -H "Authorization: Bearer ${GITHUB_TOKEN}" \
  -H "Accept: application/vnd.github.v3+json" \
  -L \
  -o lrk$VER.zip \
-https://nuget.pkg.github.com/G-Research/download/librdkafka.redist/$VER/librdkafka.redis.$VER.nupkg
+https://nuget.pkg.github.com/G-Research/download/librdkafka.redist/$VER/librdkafka.redist.$VER.nupkg
 
 #curl -L -o lrk$VER.zip https://www.nuget.org/api/v2/package/librdkafka.redist/$VER
 
