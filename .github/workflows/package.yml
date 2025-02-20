@@ -12,7 +12,7 @@ jobs:
 
   build-linux-x64:
     name: Build wheels for Linux x64
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       OS_NAME: linux
       ARCH: x64
