@@ -1,12 +1,14 @@
 import os
 import sys
 import re
-from pathlib import Path
-from github import Github
-from typing import List, Dict
 import itertools
 import requests
 import hashlib
+
+from urllib.parse import quote
+from pathlib import Path
+from github import Github
+from typing import List, Dict
 
 HTML_TEMPLATE = """<!DOCTYPE html>
  <html>
@@ -94,7 +96,7 @@ class PackageIndexBuilder:
                             f.write(chunk)
 
                 sha256_hash = calculate_sha256(package_dir / filename)
-                file_links.append(f'<a href="{filename}#sha256={sha256_hash}">{filename}</a><br/>')
+                file_links.append(f'<a href="{quote(filename)}#sha256={sha256_hash}">{filename}</a><br/>')
 
             package_index = HTML_TEMPLATE.format(
                 package_name=f"Links for {package}",
