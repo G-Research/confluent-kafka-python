@@ -1,10 +1,12 @@
 import os
 import sys
+import re
 from pathlib import Path
 from github import Github
 from typing import List, Dict
 import itertools
 import requests
+import hashlib
 
 HTML_TEMPLATE = """<!DOCTYPE html>
  <html>
@@ -17,11 +19,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
  </body>
  </html>
 """
+    
+def normalize(name):
+    """Normalize package name according to PEP 503."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+def calculate_sha256(file_path):
+    with open(file_path, "rb") as f:
+        digest = hashlib.file_digest(f, "sha256")
+
+    return digest.hexdigest()
 
 class PackageIndexBuilder:
     def __init__(self, token: str, repo_name: str, output_dir: str):
         self.github = Github(token)
-        self.repo_name = repo_name
+        self.repo = self.github.get_repo(repo_name)
         self.output_dir = Path(output_dir)
         self.packages: Dict[str, List[Dict]] = {}
         
@@ -35,12 +47,11 @@ class PackageIndexBuilder:
     def collect_packages(self):
 
         print ("Query release assets")
-        repo = self.github.get_repo(self.repo_name)
-
-        for release in repo.get_releases():
+        
+        for release in self.repo.get_releases():
             for asset in release.get_assets():
                 if asset.name.endswith(('.whl', '.tar.gz')):
-                    package_name = asset.name.split('-')[0].replace('_', '-')
+                    package_name = normalize(asset.name.split('-')[0])
                     if package_name not in self.packages:
                         self.packages[package_name] = []
 
@@ -71,7 +82,6 @@ class PackageIndexBuilder:
             file_links = []
             assets = sorted(assets, key=lambda x: x["filename"])
             for filename, items in itertools.groupby(assets, key=lambda x: x["filename"]):
-                file_links.append(f'<a href="./{filename}">{filename}</a><br/>')
                 url = next(items)['url']
 
                 # Download the file
@@ -83,8 +93,11 @@ class PackageIndexBuilder:
                         if chunk:
                             f.write(chunk)
 
+                sha256_hash = calculate_sha256(package_dir / filename)
+                file_links.append(f'<a href="{filename}#sha256={sha256_hash}">{filename}</a><br/>')
+
             package_index = HTML_TEMPLATE.format(
-                package_name=package,
+                package_name=f"Links for {package}",
                 package_links="\n".join(file_links)
             )
 
