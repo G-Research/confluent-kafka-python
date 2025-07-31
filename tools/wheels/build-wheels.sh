@@ -35,6 +35,8 @@ case $OSTYPE in
         # Need to set up env vars (in docker) so that cibuildwheel finds librdkafka.
         lib_dir=dest/runtimes/linux-$ARCH/native
         export CIBW_ENVIRONMENT="CFLAGS=-I\$PWD/dest/build/native/include LDFLAGS=-L\$PWD/$lib_dir LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:\$PWD/$lib_dir"
+        # Do not include libsasl2 and its dependencies in the resulting wheel.
+        export CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude 'libsasl2.so*' -w {dest_dir} {wheel}"
         ;;
     darwin*)
         os=macos
