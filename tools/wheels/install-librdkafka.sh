@@ -55,7 +55,10 @@ if [[ $OSTYPE == linux* ]]; then
         patchelf --set-soname librdkafka_sasl2_3.so.1 --output $LIBDIR/{librdkafka_sasl2_3.so.1,librdkafka.so}
         ln -s librdkafka_sasl2_3.so.1 $LIBDIR/librdkafka_sasl2_3.so
     fi
-    ldd $LIBDIR/librdkafka.so.1
+    for lib in $LIBDIR/librdkafka*.so.1; do
+        echo $lib
+        ldd $lib
+    done
 
 elif [[ $OSTYPE == darwin* ]]; then
     # MacOS X
