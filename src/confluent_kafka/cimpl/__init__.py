@@ -10,7 +10,7 @@ for module_name in ("sasl2_3", "sasl2_2", "nodeps"):
             if not name.startswith("__"):
                 globals()[name] = getattr(module, name)
         break
-    except ModuleNotFoundError:
+    except ImportError:
         pass
 
 if variant is None:
