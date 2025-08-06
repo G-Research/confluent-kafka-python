@@ -8,7 +8,15 @@ import hashlib
 from urllib.parse import quote
 from pathlib import Path
 from github import Github
-from typing import List, Dict
+from typing import List, Dict, Set
+
+# Define yanked versions - modify this dictionary as needed
+yanked_versions = {
+         "confluent-kafka": {
+             "2.11.0+gr",
+             "2.11.0+gr.1",
+         },
+    }
 
 HTML_TEMPLATE = """<!DOCTYPE html>
  <html>
@@ -21,7 +29,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
  </body>
  </html>
 """
-    
+
 def normalize(name):
     """Normalize package name according to PEP 503."""
     return re.sub(r"[-_.]+", "-", name).lower()
@@ -32,12 +40,25 @@ def calculate_sha256(file_path):
 
     return digest.hexdigest()
 
+def extract_version_from_filename(filename: str) -> str:
+    """Extract version from wheel or sdist filename."""
+    # Remove extension
+    name = filename.replace('.tar.gz', '').replace('.whl', '')
+    
+    # For wheels: package-version-python-abi-platform
+    # For sdist: package-version
+    parts = name.split('-')
+    if len(parts) >= 2:
+        return parts[1]
+    return ""
+
 class PackageIndexBuilder:
-    def __init__(self, token: str, repo_name: str, output_dir: str):
+    def __init__(self, token: str, repo_name: str, output_dir: str, yanked_versions: Dict[str, Set[str]] = None):
         self.github = Github(token)
         self.repo = self.github.get_repo(repo_name)
         self.output_dir = Path(output_dir)
         self.packages: Dict[str, List[Dict]] = {}
+        self.yanked_versions = yanked_versions or {}
         
         # Set up authenticated session
         self.session = requests.Session()
@@ -46,9 +67,13 @@ class PackageIndexBuilder:
             "Accept": "application/octet-stream",
         })
 
-    def collect_packages(self):
+    def is_version_yanked(self, package_name: str, version: str) -> bool:
+        """Check if a specific version of a package is yanked."""
+        normalized_package = normalize(package_name)
+        return normalized_package in self.yanked_versions and version in self.yanked_versions[normalized_package]
 
-        print ("Query release assets")
+    def collect_packages(self):
+        print("Query release assets")
         
         for release in self.repo.get_releases():
             for asset in release.get_assets():
@@ -57,11 +82,13 @@ class PackageIndexBuilder:
                     if package_name not in self.packages:
                         self.packages[package_name] = []
 
+                    version = extract_version_from_filename(asset.name)
                     self.packages[package_name].append({
                         'filename': asset.name,
                         'url': asset.url,
                         'size': asset.size,
                         'upload_time': asset.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        'version': version,
                     })
 
     def generate_index_html(self):
@@ -84,7 +111,9 @@ class PackageIndexBuilder:
             file_links = []
             assets = sorted(assets, key=lambda x: x["filename"])
             for filename, items in itertools.groupby(assets, key=lambda x: x["filename"]):
-                url = next(items)['url']
+                asset_info = next(items)
+                url = asset_info['url']
+                version = asset_info['version']
 
                 # Download the file
                 with open(package_dir / filename, 'wb') as f:
@@ -96,7 +125,15 @@ class PackageIndexBuilder:
                             f.write(chunk)
 
                 sha256_hash = calculate_sha256(package_dir / filename)
-                file_links.append(f'<a href="{quote(filename)}#sha256={sha256_hash}">{filename}</a><br/>')
+
+                # Check if this version is yanked
+                yanked_attr = ""
+                if self.is_version_yanked(package, version):
+                    yanked_attr = ' data-yanked="true"'
+
+                file_links.append(
+                    f'<a href="{quote(filename)}#sha256={sha256_hash}"{yanked_attr}>{filename}</a><br/>'
+                )
 
             package_index = HTML_TEMPLATE.format(
                 package_name=f"Links for {package}",
@@ -126,7 +163,7 @@ def main():
         print ("Missing required environment variables")
         sys.exit(1)
 
-    builder = PackageIndexBuilder(token, repo, output_dir)
+    builder = PackageIndexBuilder(token, repo, output_dir, yanked_versions)
     builder.build()
 
 if __name__ == "__main__":
