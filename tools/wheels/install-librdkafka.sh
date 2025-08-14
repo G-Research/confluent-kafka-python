@@ -39,26 +39,9 @@ ARCH=${ARCH:-x64}
 
 if [[ $OSTYPE == linux* ]]; then
     # Linux
-    LIBDIR=runtimes/linux-$ARCH/native
 
-    # Copy the librdkafka build with least dependencies to librdkafka.so.1
-    if [[ $ARCH == arm64* ]]; then
-        cp -v $LIBDIR/{librdkafka.so,librdkafka.so.1}
-    else
-        cp -v $LIBDIR/{centos8-librdkafka.so,librdkafka.so.1}
-        # Copy the librdkafka build with sasl2 support to 2 versions:
-        # librdkafka_sasl2_2.so.1 for debian-based distros
-        # librdkafka_sasl2_3.so.1 for rpm-based distros
-        patchelf --set-soname librdkafka_sasl2_2.so.1 --output $LIBDIR/{librdkafka_sasl2_2.so.1,librdkafka.so}
-        patchelf --replace-needed libsasl2.so.3 libsasl2.so.2 $LIBDIR/librdkafka_sasl2_2.so.1
-        ln -s librdkafka_sasl2_2.so.1 $LIBDIR/librdkafka_sasl2_2.so
-        patchelf --set-soname librdkafka_sasl2_3.so.1 --output $LIBDIR/{librdkafka_sasl2_3.so.1,librdkafka.so}
-        ln -s librdkafka_sasl2_3.so.1 $LIBDIR/librdkafka_sasl2_3.so
-    fi
-    for lib in $LIBDIR/librdkafka*.so.1; do
-        echo $lib
-        ldd $lib
-    done
+    cp -v runtimes/linux-$ARCH/native/{librdkafka.so,librdkafka.so.1}
+    ldd runtimes/linux-$ARCH/native/librdkafka.so.1
 
 elif [[ $OSTYPE == darwin* ]]; then
     # MacOS X
