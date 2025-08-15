@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import ctypes.util
 import os
 from setuptools import setup
 from setuptools import Extension
@@ -17,44 +16,13 @@ if platform.system() == 'Windows':
 else:
     librdkafka_libname = 'rdkafka'
 
-# Define the default module to build, without external dependencies.
-module_defs = [
-    {
-        'name': 'confluent_kafka.cimpl.nodeps.cimpl',
-        'libname': librdkafka_libname,
-    }
-]
+module = Extension('confluent_kafka.cimpl',
+                   libraries=[librdkafka_libname],
+                   sources=[os.path.join(ext_dir, 'confluent_kafka.c'),
+                            os.path.join(ext_dir, 'Producer.c'),
+                            os.path.join(ext_dir, 'Consumer.c'),
+                            os.path.join(ext_dir, 'Metadata.c'),
+                            os.path.join(ext_dir, 'AdminTypes.c'),
+                            os.path.join(ext_dir, 'Admin.c')])
 
-# Check for GSSAPI support and add the appropriate module definitions.
-if ctypes.util.find_library('rdkafka_sasl2_2'):
-    module_defs.append(
-        {
-            'name': 'confluent_kafka.cimpl.sasl2_2.cimpl',
-            'libname': 'rdkafka_sasl2_2',
-        }
-    )
-if ctypes.util.find_library('rdkafka_sasl2_3'):
-    module_defs.append(
-        {
-            'name': 'confluent_kafka.cimpl.sasl2_3.cimpl',
-            'libname': 'rdkafka_sasl2_3',
-        }
-    )
-
-setup(
-    ext_modules=[
-        Extension(
-            mod_def['name'],
-            libraries=[mod_def['libname']],
-            sources=[
-                os.path.join(ext_dir, 'confluent_kafka.c'),
-                os.path.join(ext_dir, 'Producer.c'),
-                os.path.join(ext_dir, 'Consumer.c'),
-                os.path.join(ext_dir, 'Metadata.c'),
-                os.path.join(ext_dir, 'AdminTypes.c'),
-                os.path.join(ext_dir, 'Admin.c'),
-            ],
-        )
-        for mod_def in module_defs
-    ]
-)
+setup(ext_modules=[module])

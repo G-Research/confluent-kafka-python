@@ -6,16 +6,23 @@ on:
   push:
 
 env:
-  LIBRDKAFKA_VERSION: v2.11.0-gr
+  LIBRDKAFKA_VERSION: v2.11.0.1-RC1
 
 jobs:
 
-  build-linux-x64:
-    name: Build wheels for Linux x64
-    runs-on: ubuntu-latest
+  build-linux:
+    name: Build wheels for Linux ${{ matrix.arch }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     env:
       OS_NAME: linux
-      ARCH: x64
+      ARCH: ${{ matrix.arch }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -55,9 +62,19 @@ jobs:
   create_release_artifacts:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     name: Create release artifacts
-    needs: [build-linux-x64, build-windows]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Check version consistency
+        run: |
+          tag_version=${GITHUB_REF/refs\/tags\/v/}
+          proj_version=$(uv run --no-project --with poetry poetry version -s)
+          if [ "$tag_version" != "$proj_version" ]; then
+            echo "::error title=Version mismatch::Tag version \"$tag_version\" does not match project version \"$proj_version\"."
+            exit 1
+          fi
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
