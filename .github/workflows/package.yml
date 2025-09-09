@@ -6,7 +6,7 @@ on:
   push:
 
 env:
-  LIBRDKAFKA_VERSION: v2.11.1.1-RC1
+  LIBRDKAFKA_VERSION: v2.11.1.1
 
 jobs:
 
