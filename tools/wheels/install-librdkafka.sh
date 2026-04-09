@@ -19,7 +19,19 @@ echo "$0: Installing librdkafka $VER to $DEST"
 [[ -d "$DEST" ]] || mkdir -p "$DEST"
 pushd "$DEST"
 
-curl -L -o lrk$VER.zip https://www.nuget.org/api/v2/package/librdkafka.redist/$VER
+# Check if variable exists
+if [ -z "${GITHUB_TOKEN}" ]; then
+    echo "Error: GITHUB_TOKEN is not set"
+    exit 1
+fi
+
+curl -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+ -H "Accept: application/vnd.github.v3+json" \
+ -L \
+ -o lrk$VER.zip \
+https://nuget.pkg.github.com/G-Research/download/librdkafka.redist/$VER/librdkafka.redist.$VER.nupkg
+
+#curl -L -o lrk$VER.zip https://www.nuget.org/api/v2/package/librdkafka.redist/$VER
 
 unzip lrk$VER.zip
 
@@ -28,12 +40,7 @@ ARCH=${ARCH:-x64}
 if [[ $OSTYPE == linux* ]]; then
     # Linux
 
-    # Copy the librdkafka build with least dependencies to librdkafka.so.1
-    if [[ $ARCH == arm64* ]]; then
-        cp -v runtimes/linux-$ARCH/native/{librdkafka.so,librdkafka.so.1}
-    else
-        cp -v runtimes/linux-$ARCH/native/{centos8-librdkafka.so,librdkafka.so.1}
-    fi
+    cp -v runtimes/linux-$ARCH/native/{librdkafka.so,librdkafka.so.1}
     ldd runtimes/linux-$ARCH/native/librdkafka.so.1
 
 elif [[ $OSTYPE == darwin* ]]; then
