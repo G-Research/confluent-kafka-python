@@ -24,10 +24,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
  <body>
      <h1>{package_name}</h1>
      {package_links}
-     <footer>
-     <p>Created at: {created_at}</p>
-     <p>Workflow run attempt: {run_attempt_url}</p>
-     </footer>
+     <hr/>
+     <p>
+     <small>Created at: {created_at}</small><br/>
+     <small>Workflow run attempt: {run_attempt_url}</small><br/>
+     </p>
  </body>
  </html>
 """
