@@ -3,6 +3,7 @@ import sys
 import re
 import itertools
 
+from datetime import datetime, timezone
 from pathlib import Path
 from github import Auth, Github
 from typing import List, Dict, Set
@@ -23,6 +24,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
  <body>
      <h1>{package_name}</h1>
      {package_links}
+     <footer>
+     <p>Created at: {created_at}</p>
+     <p>Workflow run attempt: {run_attempt_url}</p>
+     </footer>
  </body>
  </html>
 """
@@ -39,6 +44,17 @@ def format_pip_hash(digest: str | None) -> str:
         return ""
     # digest format: "sha256:hexhash"
     return f"#{digest.replace(':', '=')}"
+
+
+def run_attempt_url() -> str:
+    """URL of the current GitHub Actions run attempt, from default env vars."""
+    server = os.environ.get("GITHUB_SERVER_URL")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
+    if not server or not repo or not run_id:
+        return "not available (not running in GitHub Actions)"
+    return f"{server}/{repo}/actions/runs/{run_id}/attempts/{attempt}"
 
 
 def extract_version_from_filename(filename: str) -> str:
@@ -67,6 +83,8 @@ class PackageIndexBuilder:
         self.output_dir = Path(output_dir)
         self.packages: Dict[str, List[Dict]] = {}
         self.yanked_versions = yanked_versions or {}
+        self.created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.run_attempt_url = run_attempt_url()
 
     def is_version_yanked(self, package_name: str, version: str) -> bool:
         """Check if a specific version of a package is yanked."""
@@ -106,6 +124,8 @@ class PackageIndexBuilder:
             package_links="\n".join(
                 [f'<a href="{x}/">{x}</a><br/>' for x in package_list]
             ),
+            created_at=self.created_at,
+            run_attempt_url=self.run_attempt_url,
         )
 
         with open(self.output_dir / "index.html", "w") as f:
@@ -138,7 +158,10 @@ class PackageIndexBuilder:
                 )
 
             package_index = HTML_TEMPLATE.format(
-                package_name=f"Links for {package}", package_links="\n".join(file_links)
+                package_name=f"Links for {package}",
+                package_links="\n".join(file_links),
+                created_at=self.created_at,
+                run_attempt_url=self.run_attempt_url,
             )
 
             with open(package_dir / "index.html", "w") as f:
@@ -159,6 +182,8 @@ class PackageIndexBuilder:
         print("Generating index files...")
         self.generate_index_html()
         print(f"Done. Output written to {self.output_dir}/")
+        print(f"created_at: {self.created_at}")
+        print(f"run_attempt_url: {self.run_attempt_url}")
 
 
 def main():
