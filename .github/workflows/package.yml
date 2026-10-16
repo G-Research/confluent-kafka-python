@@ -91,25 +91,23 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
+          # Release assets are immutable: the wheel builds are not bit-for-bit
+          # reproducible, so a re-run must not replace a published wheel with a
+          # different sha256 under the same filename. Existing assets are skipped.
+          overwrite_files: false
           files: |
             artifacts/confluent_kafka*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish_simple_package_index:
-    name: Build&publish a PyPI-compatible package index
+  build_simple_package_index:
+    name: Build a PyPI-compatible package index
     runs-on: ubuntu-latest
     needs: [create_release_artifacts]
-    if: always() && !failure() && !cancelled() && (github.event_name == 'push')
-    concurrency:
-      group: simple_package_index
-      cancel-in-progress: true
+    if: ${{ !cancelled() && github.event_name == 'push' }}
     permissions:
-      contents: write
-      actions: read
-      packages: read
-      pages: write
-      id-token: write
+      contents: read
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Generate Package Index
@@ -126,6 +124,22 @@ jobs:
         with:
           path: "dist"
 
+  publish_simple_package_index:
+    name: Publish the package index to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: [build_simple_package_index]
+    # Deploy on tag pushes only. actions/deploy-pages takes pages_build_version
+    # from GITHUB_SHA, which is not unique across runs of the same commit, so a
+    # tag push and the branch push of that same commit produce the same version
+    # and the second deployment can report success while serving the old artifact.
+    # See https://github.com/actions/deploy-pages/issues/383
+    # On branch pushes the index is still built and uploaded as an artifact.
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
